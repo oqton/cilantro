@@ -32,7 +32,7 @@ namespace cilantro {
         Eigen::JacobiSVD<Eigen::Matrix<ScalarT,TransformT::Dim,TransformT::Dim>> svd(sigma, Eigen::ComputeFullU | Eigen::ComputeFullV);
         if ((svd.matrixU()*svd.matrixV()).determinant() < (ScalarT)0.0) {
             Eigen::Matrix<ScalarT,TransformT::Dim,TransformT::Dim> U(svd.matrixU());
-            U.col(dst.rows()-1) *= (ScalarT)(-1.0);
+            // U.col(dst.rows()-1) *= (ScalarT)(-1.0);
             tform.linear().noalias() = U*svd.matrixV().transpose();
         } else {
             tform.linear().noalias() = svd.matrixU()*svd.matrixV().transpose();
