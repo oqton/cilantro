@@ -144,6 +144,8 @@ namespace cilantro {
             std::vector<typename Matrix::Scalar> v;
             size_t n_rows = 0;
             while (getline(in, line)) {
+                // Ignore header/footer lines.
+                if (std::any_of(line.begin(), line.end(), ::isalpha)) continue;
                 n_rows++;
                 std::stringstream input_line(line);
                 while (!input_line.eof()) {
