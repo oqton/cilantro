@@ -16,8 +16,8 @@ namespace cilantro {
     {
         typedef typename TransformT::Scalar ScalarT;
 
+        tform.setIdentity();
         if (src.cols() != dst.cols() || src.cols() == 0) {
-            tform.setIdentity();
             return false;
         }
 
@@ -55,8 +55,8 @@ namespace cilantro {
             NumUnknowns = TransformT::Dim*(TransformT::Dim + 1)
         };
 
+        tform.setIdentity();
         if (src.cols() != dst.cols() || src.cols() == 0) {
-            tform.setIdentity();
             return false;
         }
 
