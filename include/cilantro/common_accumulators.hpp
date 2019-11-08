@@ -1,5 +1,6 @@
 #pragma once
-
+#include <iostream>
+#include <set>
 #include <cilantro/data_containers.hpp>
 
 namespace cilantro {
@@ -146,6 +147,64 @@ namespace cilantro {
     private:
         ConstVectorSetMatrixMap<ScalarT,EigenDim> points_;
         ConstVectorSetMatrixMap<ScalarT,EigenDim> normals_;
+    };
+
+        template <typename ScalarT, ptrdiff_t EigenDim>
+    struct PointNormalLabelSumAccumulator {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        // enum {EigenAlign = (EigenDim != Eigen::Dynamic) && (sizeof(Vector<ScalarT,EigenDim>) % 16 == 0)};
+        enum {EigenAlign = false};
+
+        inline PointNormalLabelSumAccumulator(size_t dim = 0) : pointSum(Vector<ScalarT,EigenDim>::Zero(dim,1)), normalSum(Vector<ScalarT,EigenDim>::Zero(dim,1)), pointCount(0) { std::cout << "bla!" << std::endl; }
+
+        inline PointNormalLabelSumAccumulator(const Eigen::Ref<const Vector<ScalarT,EigenDim>> &point, const Eigen::Ref<const Vector<ScalarT,EigenDim>> &normal, size_t label)
+                : pointSum(point), normalSum(normal), pointCount(1), labels({label})
+        {}
+
+        inline PointNormalLabelSumAccumulator& mergeWith(const PointNormalLabelSumAccumulator &other) {
+            pointSum += other.pointSum;
+            if (normalSum.dot(other.normalSum) < (ScalarT)0.0) {
+                normalSum -= other.normalSum;
+            } else {
+                normalSum += other.normalSum;
+            }
+            pointCount += other.pointCount;
+            labels.insert(other.labels.begin(), other.labels.end());
+            return *this;
+        }
+
+        Vector<ScalarT,EigenDim> pointSum;
+        Vector<ScalarT,EigenDim> normalSum;
+        size_t pointCount;
+        std::set<size_t> labels;
+    };
+
+    template <typename ScalarT, ptrdiff_t EigenDim>
+    class PointNormalLabelSumAccumulatorProxy {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        typedef PointNormalLabelSumAccumulator<ScalarT,EigenDim> Accumulator;
+
+        inline PointNormalLabelSumAccumulatorProxy(const ConstVectorSetMatrixMap<ScalarT,EigenDim> &points,
+                                                   const ConstVectorSetMatrixMap<ScalarT,EigenDim> &normals,
+                                                   const Vector<ScalarT,Eigen::Dynamic>& labels)
+                : points_(points), normals_(normals), labels_(labels)
+        { std::cout << "bla!" << std::endl; }
+
+        inline Accumulator buildAccumulator(size_t i) const {
+            return Accumulator(points_.col(i), normals_.col(i), labels_(i));
+        }
+
+        inline Accumulator& addToAccumulator(Accumulator& accum, size_t i) const {
+            return accum.mergeWith(buildAccumulator(i));
+        }
+
+    private:
+        ConstVectorSetMatrixMap<ScalarT,EigenDim> points_;
+        ConstVectorSetMatrixMap<ScalarT,EigenDim> normals_;
+        Vector<ScalarT,Eigen::Dynamic> labels_;
     };
 
     template <typename ScalarT, ptrdiff_t EigenDim>

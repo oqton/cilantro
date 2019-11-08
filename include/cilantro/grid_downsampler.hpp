@@ -123,6 +123,94 @@ namespace cilantro {
     };
 
     template <typename ScalarT, ptrdiff_t EigenDim>
+    class PointsNormalsLabelsGridDownsampler : public GridAccumulator<ScalarT,EigenDim,PointNormalLabelSumAccumulatorProxy<ScalarT,EigenDim>> {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        PointsNormalsLabelsGridDownsampler(const ConstVectorSetMatrixMap<ScalarT,EigenDim> &points,
+                                     const ConstVectorSetMatrixMap<ScalarT,EigenDim> &normals,
+                                     const Vector<ScalarT,Eigen::Dynamic>& labels,
+                                     ScalarT bin_size, bool parallel = true)
+                : GridAccumulator<ScalarT,EigenDim,PointNormalLabelSumAccumulatorProxy<ScalarT,EigenDim>>(points, bin_size, PointNormalLabelSumAccumulatorProxy<ScalarT,EigenDim>(points, normals, labels))
+        {}
+
+        const PointsNormalsLabelsGridDownsampler& getDownsampledPoints(VectorSet<ScalarT,EigenDim> &ds_points, size_t min_points_in_bin = 1, size_t min_different_labels_in_bin = 1) const {
+            ds_points.resize(this->data_map_.rows(), this->grid_lookup_table_.size());
+
+            ScalarT scale;
+            size_t ind = 0;
+            for (size_t k = 0; k < this->bin_iterators_.size(); k++) {
+                if (this->bin_iterators_[k]->second.pointCount < min_points_in_bin or
+                    this->bin_iterators_[k]->second.labels.size() < min_different_labels_in_bin) {
+                    continue;
+                } else {
+                    scale = (ScalarT)(1.0)/this->bin_iterators_[k]->second.pointCount;
+                    ds_points.col(ind++) = scale*this->bin_iterators_[k]->second.pointSum;
+                }
+            }
+
+            ds_points.conservativeResize(Eigen::NoChange, ind);
+            return *this;
+        }
+
+        inline VectorSet<ScalarT,EigenDim> getDownsampledPoints(size_t min_points_in_bin = 1, size_t min_different_labels_in_bin = 1) const {
+            VectorSet<ScalarT,EigenDim> ds_points;
+            getDownsampledPoints(ds_points, min_points_in_bin);
+            return ds_points;
+        }
+
+        const PointsNormalsLabelsGridDownsampler& getDownsampledNormals(VectorSet<ScalarT,EigenDim> &ds_normals, size_t min_points_in_bin = 1, size_t min_different_labels_in_bin = 1) const {
+            ds_normals.resize(this->data_map_.rows(), this->grid_lookup_table_.size());
+
+            ScalarT scale;
+            size_t ind = 0;
+            for (size_t k = 0; k < this->bin_iterators_.size(); k++) {
+                if (this->bin_iterators_[k]->second.pointCount < min_points_in_bin or
+                    this->bin_iterators_[k]->second.labels.size() < min_different_labels_in_bin) {
+                    continue;
+                } else {
+                    scale = (ScalarT)(1.0)/this->bin_iterators_[k]->second.pointCount;
+                    ds_normals.col(ind++) = (scale*this->bin_iterators_[k]->second.normalSum).normalized();
+                }
+            }
+
+            ds_normals.conservativeResize(Eigen::NoChange, ind);
+            return *this;
+        }
+
+        inline VectorSet<ScalarT,EigenDim> getDownsampledNormals(size_t min_points_in_bin = 1, size_t min_different_labels_in_bin = 1) const {
+            VectorSet<ScalarT,EigenDim> ds_normals;
+            getDownsampledNormals(ds_normals, min_points_in_bin);
+            return ds_normals;
+        }
+
+        const PointsNormalsLabelsGridDownsampler& getDownsampledPointsNormals(VectorSet<ScalarT,EigenDim> &ds_points,
+                                                                        VectorSet<ScalarT,EigenDim> &ds_normals,
+                                                                        size_t min_points_in_bin = 1, size_t min_different_labels_in_bin = 1) const
+        {
+            ds_points.resize(this->data_map_.rows(), this->grid_lookup_table_.size());
+            ds_normals.resize(this->data_map_.rows(), this->grid_lookup_table_.size());
+
+            ScalarT scale;
+            size_t ind = 0;
+            for (size_t k = 0; k < this->bin_iterators_.size(); k++) {
+                if (this->bin_iterators_[k]->second.pointCount < min_points_in_bin or
+                    this->bin_iterators_[k]->second.labels.size() < min_different_labels_in_bin) {
+                    continue;
+                } else {
+                    scale = (ScalarT)(1.0)/this->bin_iterators_[k]->second.pointCount;
+                    ds_points.col(ind) = scale*this->bin_iterators_[k]->second.pointSum;
+                    ds_normals.col(ind++) = (scale*this->bin_iterators_[k]->second.normalSum).normalized();
+                }
+            }
+
+            ds_points.conservativeResize(Eigen::NoChange, ind);
+            ds_normals.conservativeResize(Eigen::NoChange, ind);
+            return *this;
+        }
+    };
+
+    template <typename ScalarT, ptrdiff_t EigenDim>
     class PointsColorsGridDownsampler : public GridAccumulator<ScalarT,EigenDim,PointColorSumAccumulatorProxy<ScalarT,EigenDim>> {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -332,6 +420,13 @@ namespace cilantro {
     typedef PointsNormalsGridDownsampler<double,3> PointsNormalsGridDownsampler3d;
     typedef PointsNormalsGridDownsampler<float,Eigen::Dynamic> PointsNormalsGridDownsamplerXf;
     typedef PointsNormalsGridDownsampler<double,Eigen::Dynamic> PointsNormalsGridDownsamplerXd;
+
+    typedef PointsNormalsLabelsGridDownsampler<float,2> PointsNormalsLabelsGridDownsampler2f;
+    typedef PointsNormalsLabelsGridDownsampler<double,2> PointsNormalsLabelsGridDownsampler2d;
+    typedef PointsNormalsLabelsGridDownsampler<float,3> PointsNormalsLabelsGridDownsampler3f;
+    typedef PointsNormalsLabelsGridDownsampler<double,3> PointsNormalsLabelsGridDownsampler3d;
+    typedef PointsNormalsLabelsGridDownsampler<float,Eigen::Dynamic> PointsNormalsLabelsGridDownsamplerXf;
+    typedef PointsNormalsLabelsGridDownsampler<double,Eigen::Dynamic> PointsNormalsLabelsGridDownsamplerXd;
 
     typedef PointsColorsGridDownsampler<float,2> PointsColorsGridDownsampler2f;
     typedef PointsColorsGridDownsampler<double,2> PointsColorsGridDownsampler2d;
