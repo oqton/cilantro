@@ -84,6 +84,55 @@ namespace cilantro {
         ConstVectorSetMatrixMap<ScalarT,EigenDim> points_;
     };
 
+        template <typename ScalarT, ptrdiff_t EigenDim>
+    struct PointLabelSumAccumulator {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        enum {EigenAlign = (EigenDim != Eigen::Dynamic) && (sizeof(Vector<ScalarT,EigenDim>) % 16 == 0)};
+
+        inline PointLabelSumAccumulator(size_t dim = 0) : pointSum(Vector<ScalarT,EigenDim>::Zero(dim,1)), pointCount(0) {}
+
+        inline PointLabelSumAccumulator(const Eigen::Ref<const Vector<ScalarT,EigenDim>> &point, size_t label)
+                : pointSum(point), pointCount(1), labels({label})
+        {}
+
+        inline PointLabelSumAccumulator& mergeWith(const PointLabelSumAccumulator &other) {
+            pointSum += other.pointSum;
+            pointCount += other.pointCount;
+            labels.insert(other.labels.begin(), other.labels.end());
+            return *this;
+        }
+
+        Vector<ScalarT,EigenDim> pointSum;
+        size_t pointCount;
+        std::set<size_t> labels;
+    };
+
+    template <typename ScalarT, ptrdiff_t EigenDim>
+    class PointLabelSumAccumulatorProxy {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+        typedef PointLabelSumAccumulator<ScalarT,EigenDim> Accumulator;
+
+        inline PointLabelSumAccumulatorProxy(const ConstVectorSetMatrixMap<ScalarT,EigenDim> &points, const Vector<ScalarT,Eigen::Dynamic>& labels)
+                : points_(points), labels_(labels)
+        {}
+
+        inline Accumulator buildAccumulator(size_t i) const {
+            return Accumulator(points_.col(i), labels_(i));
+        }
+
+        inline Accumulator& addToAccumulator(Accumulator& accum, size_t i) const {
+            accum.mergeWith(Accumulator(points_.col(i), labels_(i)));
+            return accum;
+        }
+
+    private:
+        ConstVectorSetMatrixMap<ScalarT,EigenDim> points_;
+        Vector<ScalarT,Eigen::Dynamic> labels_;
+    };
+
     template <typename ScalarT, ptrdiff_t EigenDim>
     struct PointNormalSumAccumulator {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
